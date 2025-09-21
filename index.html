@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم Fashion MNIST</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --dark: #1f2937;
+            --light: #f9fafb;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .prediction-bar {
+            transition: width 1s ease-in-out;
+        }
+        
+        #imagePreview {
+            transition: all 0.3s ease;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .floating-btn {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- الشريط العلوي -->
+    <nav class="bg-white shadow-lg fixed w-full top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-tshirt text-2xl text-purple-600"></i>
+                    <h1 class="text-xl font-bold gradient-text">Fashion MNIST Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                        <i class="fas fa-circle text-green-500 mr-1"></i>
+                        <span id="connectionStatus">جاري الاتصال...</span>
+                    </span>
+                    <button onclick="showApiModal()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-key mr-2"></i>API Key
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="pt-20 pb-10 px-4">
+        <div class="max-w-7xl mx-auto">
+            <!-- بطاقات الإحصائيات -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="glass-effect rounded-xl p-6 text-white card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-80">إجمالي التنبؤات</p>
+                            <p class="text-3xl font-bold" id="totalPredictions">0</p>
+                        </div>
+                        <i class="fas fa-chart-line text-2xl"></i>
+                    </div>
+                </div>
+
+                <div class="glass-effect rounded-xl p-6 text-white card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-80">معدل الدقة</p>
+                            <p class="text-3xl font-bold" id="accuracyRate">0%</p>
+                        </div>
+                        <i class="fas fa-target text-2xl"></i>
+                    </div>
+                </div>
+
+                <div class="glass-effect rounded-xl p-6 text-white card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-80">الفئة الأكثر شيوعاً</p>
+                            <p class="text-3xl font-bold" id="mostCommonClass">-</p>
+                        </div>
+                        <i class="fas fa-star text-2xl"></i>
+                    </div>
+                </div>
+
+                <div class="glass-effect rounded-xl p-6 text-white card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm opacity-80">حالة الخادم</p>
+                            <p class="text-3xl font-bold" id="serverStatus">جاري الفحص...</p>
+                        </div>
+                        <i class="fas fa-server text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- منطقة التنبؤ الرئيسية -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- تحميل الصورة -->
+                <div class="glass-effect rounded-xl p-6 text-white">
+                    <h2 class="text-xl font-bold mb-6">تحميل الصورة للتنبؤ</h2>
+                    
+                    <div class="border-2 border-dashed border-white border-opacity-30 rounded-lg p-8 text-center mb-6"
+                         id="dropZone"
+                         ondrop="handleDrop(event)"
+                         ondragover="handleDragOver(event)">
+                        <i class="fas fa-cloud-upload-alt text-4xl mb-4 opacity-60"></i>
+                        <p class="mb-4">اسحب وأفلت الصورة هنا أو</p>
+                        <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                        <button onclick="document.getElementById('imageUpload').click()" 
+                                class="bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold">
+                            اختر صورة
+                        </button>
+                    </div>
+
+                    <div class="text-center mb-6">
+                        <div id="imagePreview" class="max-w-xs mx-auto mb-4 hidden">
+                            <img id="previewImg" class="rounded-lg shadow-lg mx-auto" style="max-height: 200px;">
+                        </div>
+                        <button onclick="predictImage()" 
+                                class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-lg font-semibold floating-btn"
+                                id="predictBtn">
+                            <i class="fas fa-brain mr-2"></i>تنبأ بالصورة
+                        </button>
+                    </div>
+                </div>
+
+                <!-- نتائج التنبؤ -->
+                <div class="glass-effect rounded-xl p-6 text-white">
+                    <h2 class="text-xl font-bold mb-6">نتائج التنبؤ</h2>
+                    
+                    <div id="loading" class="hidden text-center py-12">
+                        <div class="loading-spinner w-12 h-12 mx-auto mb-4"></div>
+                        <p>جاري تحليل الصورة...</p>
+                    </div>
+
+                    <div id="predictionResult" class="hidden">
+                        <div class="text-center mb-6">
+                            <h3 class="text-2xl font-bold mb-2" id="predictedClass"></h3>
+                            <p class="text-sm opacity-80">ثقة النموذج</p>
+                            <p class="text-3xl font-bold text-green-400" id="confidenceValue"></p>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div id="topPredictions"></div>
+                        </div>
+
+                        <div class="mt-6 p-4 bg-white bg-opacity-10 rounded-lg">
+                            <h4 class="font-semibold mb-3">التفاصيل الفنية</h4>
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <div>وقت الاستجابة:</div>
+                                <div id="responseTime">-</div>
+                                <div>حجم الصورة:</div>
+                                <div id="imageSize">-</div>
+                                <div>معرف الطلب:</div>
+                                <div id="requestId">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="errorMessage" class="hidden text-center py-8 text-red-300">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-3"></i>
+                        <p id="errorText"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- إحصائيات الفئات -->
+            <div class="glass-effect rounded-xl p-6 text-white mb-8">
+                <h2 class="text-xl font-bold mb-6">الفئات المتاحة</h2>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="classDistribution">
+                    <!-- سيتم ملؤها بالبيانات -->
+                </div>
+            </div>
+
+            <!-- سجل التنبؤات -->
+            <div class="glass-effect rounded-xl p-6 text-white">
+                <h2 class="text-xl font-bold mb-6">سجل التنبؤات الحديثة</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-white text-opacity-90">
+                        <thead>
+                            <tr class="border-b border-white border-opacity-20">
+                                <th class="pb-3 text-right">الصورة</th>
+                                <th class="pb-3 text-right">التنبؤ</th>
+                                <th class="pb-3 text-right">الثقة</th>
+                                <th class="pb-3 text-right">الوقت</th>
+                                <th class="pb-3 text-right">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictionHistory">
+                            <!-- سيتم ملؤها بالبيانات -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal API Key -->
+    <div id="apiModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 w-96">
+            <h3 class="text-lg font-bold mb-4">معلومات API</h3>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">API Key:</label>
+                <div class="flex">
+                    <input type="text" value="SECRET_KEY_123" 
+                           class="flex-1 px-3 py-2 border rounded-l-lg" id="apiKeyInput" readonly>
+                    <button onclick="copyApiKey()" class="bg-blue-500 text-white px-3 rounded-r-lg">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Endpoint:</label>
+                <code class="bg-gray-100 p-2 rounded text-sm block">POST /predict</code>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">URL الخادم:</label>
+                <input type="text" value="http://localhost:8000" 
+                       class="w-full px-3 py-2 border rounded" id="serverUrlInput">
+            </div>
+            <button onclick="hideApiModal()" class="w-full bg-gray-500 text-white py-2 rounded-lg">
+                إغلاق
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // المتغيرات العامة
+        const DEFAULT_API_URL = 'http://localhost:8000';
+        const API_KEY = 'SECRET_KEY_123';
+        let predictionHistory = [];
+        let serverUrl = DEFAULT_API_URL;
+
+        // تهيئة الصفحة
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPredictionHistory();
+            loadServerUrl();
+            checkServerHealth();
+            loadAvailableClasses();
+        });
+
+        // إدارة اتصال API
+        async function checkServerHealth() {
+            try {
+                document.getElementById('connectionStatus').textContent = 'جاري الاتصال...';
+                document.getElementById('serverStatus').innerHTML = '<span class="text-yellow-500">جاري الفحص...</span>';
+                
+                const response = await fetch(`${serverUrl}/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('connectionStatus').textContent = 'متصل';
+                    document.getElementById('serverStatus').innerHTML = '<span class="text-green-500">نشط ✓</span>';
+                    console.log('✅ حالة الخادم:', data);
+                } else {
+                    throw new Error('الخادم غير متاح');
+                }
+            } catch (error) {
+                document.getElementById('connectionStatus').textContent = 'غير متصل';
+                document.getElementById('serverStatus').innerHTML = '<span class="text-red-500">غير متصل ✗</span>';
+                console.error('❌ خطأ في الاتصال:', error);
+            }
+        }
+
+        async function loadAvailableClasses() {
+            try {
+                const response = await fetch(`${serverUrl}/api/classes`);
+                if (response.ok) {
+                    const data = await response.json();
+                    displayClasses(data.classes);
+                }
+            } catch (error) {
+                console.error('❌ خطأ في تحميل الفئات:', error);
+            }
+        }
+
+        function displayClasses(classes) {
+            const container = document.getElementById('classDistribution');
+            container.innerHTML = '';
+            
+            classes.forEach(className => {
+                container.innerHTML += `
+                    <div class="text-center p-3 bg-white bg-opacity-10 rounded-lg">
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-tshirt"></i>
+                        </div>
+                        <p class="text-sm font-semibold">${className}</p>
+                    </div>
+                `;
+            });
+        }
+
+        // معالجة سحب وإفلات الصور
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleImageUpload(e) {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('يرجى تحميل ملف صورة فقط');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('imagePreview');
+                const previewImg = document.getElementById('previewImg');
+                previewImg.src = e.target.result;
+                preview.classList.remove('hidden');
+                
+                document.getElementById('predictionResult').classList.add('hidden');
+                document.getElementById('errorMessage').classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // تنبؤ بالصورة
+        async function predictImage() {
+            const previewImg = document.getElementById('previewImg');
+            if (!previewImg.src) {
+                showError('يرجى تحميل صورة أولاً');
+                return;
+            }
+
+            const loading = document.getElementById('loading');
+            const predictBtn = document.getElementById('predictBtn');
+            const resultDiv = document.getElementById('predictionResult');
+            const errorDiv = document.getElementById('errorMessage');
+
+            loading.classList.remove('hidden');
+            predictBtn.disabled = true;
+            resultDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+
+            try {
+                const startTime = performance.now();
+                
+                const response = await fetch(previewImg.src);
+                const blob = await response.blob();
+                
+                const formData = new FormData();
+                formData.append('file', blob, 'image.jpg');
+
+                const predictResponse = await fetch(`${serverUrl}/api/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': API_KEY
+                    },
+                    body: formData
+                });
+
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+
+                if (!predictResponse.ok) {
+                    const errorData = await predictResponse.json();
+                    throw new Error(errorData.detail || `خطأ في الخادم: ${predictResponse.status}`);
+                }
+
+                const data = await predictResponse.json();
+
+                // عرض النتائج
+                document.getElementById('predictedClass').textContent = data.predicted_class;
+                document.getElementById('confidenceValue').textContent = `${data.confidence}%`;
+                document.getElementById('responseTime').textContent = `${responseTime}ms`;
+                document.getElementById('imageSize').textContent = `${(blob.size / 1024).toFixed(1)}KB`;
+                document.getElementById('requestId').textContent = `#${Date.now()}`;
+
+                displayTopPredictions(data.all_predictions || [{
+                    class_name: data.predicted_class,
+                    confidence: data.confidence
+                }]);
+
+                resultDiv.classList.remove('hidden');
+                
+                addToHistory({
+                    image: previewImg.src,
+                    prediction: data.predicted_class,
+                    confidence: data.confidence,
+                    timestamp: new Date().toLocaleString('ar-SA')
+                });
+
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                loading.classList.add('hidden');
+                predictBtn.disabled = false;
+            }
+        }
+
+        function displayTopPredictions(predictions) {
+            const container = document.getElementById('topPredictions');
+            container.innerHTML = '';
+
+            predictions.forEach(pred => {
+                const confidencePercent = pred.confidence;
+                const barWidth = Math.min(confidencePercent, 100);
+
+                container.innerHTML += `
+                    <div class="bg-white bg-opacity-10 rounded-lg p-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-semibold">${pred.class_name}</span>
+                            <span class="text-green-400">${confidencePercent}%</span>
+                        </div>
+                        <div class="w-full bg-white bg-opacity-20 rounded-full h-2">
+                            <div class="bg-gradient-to-r from-green-400 to-blue-400 h-2 rounded-full prediction-bar" 
+                                 style="width: ${barWidth}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // إدارة السجل والتاريخ
+        function addToHistory(entry) {
+            predictionHistory.unshift(entry);
+            if (predictionHistory.length > 10) {
+                predictionHistory = predictionHistory.slice(0, 10);
+            }
+            updateHistoryDisplay();
+            updateStatistics();
+            saveToLocalStorage();
+        }
+
+        function updateHistoryDisplay() {
+            const container = document.getElementById('predictionHistory');
+            container.innerHTML = '';
+
+            predictionHistory.forEach((entry, index) => {
+                container.innerHTML += `
+                    <tr class="border-b border-white border-opacity-10">
+                        <td class="py-3">
+                            <img src="${entry.image}" class="w-12 h-12 object-cover rounded" 
+                                 onmouseenter="showImagePreview(this.src)" 
+                                 onmouseleave="hideImagePreview()">
+                        </td>
+                        <td class="py-3">${entry.prediction}</td>
+                        <td class="py-3">${entry.confidence}%</td>
+                        <td class="py-3">${entry.timestamp}</td>
+                        <td class="py-3">
+                            <button onclick="retryPrediction(${index})" class="text-blue-400 hover:text-blue-300">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function updateStatistics() {
+            const total = predictionHistory.length;
+            const correct = predictionHistory.filter(entry => entry.confidence > 70).length;
+            const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+            
+            const classCounts = {};
+            predictionHistory.forEach(entry => {
+                classCounts[entry.prediction] = (classCounts[entry.prediction] || 0) + 1;
+            });
+            
+            const mostCommon = Object.keys(classCounts).reduce((a, b) => 
+                classCounts[a] > classCounts[b] ? a : b, '-');
+            
+            document.getElementById('totalPredictions').textContent = total;
+            document.getElementById('accuracyRate').textContent = `${accuracy}%`;
+            document.getElementById('mostCommonClass').textContent = mostCommon;
+        }
+
+        // وظائف المساعدة
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorMessage').classList.remove('hidden');
+        }
+
+        function showApiModal() {
+            document.getElementById('apiModal').classList.remove('hidden');
+        }
+
+        function hideApiModal() {
+            document.getElementById('apiModal').classList.add('hidden');
+        }
+
+        function copyApiKey() {
+            navigator.clipboard.writeText(API_KEY);
+            alert('تم نسخ API Key');
+        }
+
+        function loadServerUrl() {
+            const savedUrl = localStorage.getItem('serverUrl');
+            if (savedUrl) {
+                serverUrl = savedUrl;
+                document.getElementById('serverUrlInput').value = serverUrl;
+            }
+        }
+
+        function saveServerUrl() {
+            const newUrl = document.getElementById('serverUrlInput').value;
+            if (newUrl) {
+                serverUrl = newUrl;
+                localStorage.setItem('serverUrl', serverUrl);
+                checkServerHealth();
+                loadAvailableClasses();
+            }
+        }
+
+        // Local Storage functions
+        function saveToLocalStorage() {
+            localStorage.setItem('predictionHistory', JSON.stringify(predictionHistory));
+        }
+
+        function loadPredictionHistory() {
+            const saved = localStorage.getItem('predictionHistory');
+            if (saved) {
+                predictionHistory = JSON.parse(saved);
+                updateHistoryDisplay();
+                updateStatistics();
+            }
+        }
+
+        function retryPrediction(index) {
+            const entry = predictionHistory[index];
+            document.getElementById('previewImg').src = entry.image;
+            document.getElementById('imagePreview').classList.remove('hidden');
+            predictImage();
+        }
+
+        function showImagePreview(src) {
+            const preview = document.createElement('div');
+            preview.className = 'fixed z-50 bg-white p-2 rounded-lg shadow-lg';
+            preview.innerHTML = `<img src="${src}" class="w-32 h-32 object-cover">`;
+            document.body.appendChild(preview);
+            
+            setTimeout(() => {
+                document.body.removeChild(preview);
+            }, 2000);
+        }
+
+        function hideImagePreview() {
+            const previews = document.querySelectorAll('.fixed.z-50');
+            previews.forEach(preview => preview.remove());
+        }
+    </script>
+</body>
+</html>
