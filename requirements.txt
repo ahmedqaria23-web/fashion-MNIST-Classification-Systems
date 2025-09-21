@@ -1,9 +1,9 @@
 fastapi==0.104.1
-uvicorn[standard]==0.24.0
+uvicorn==0.24.0
 python-multipart==0.0.6
 numpy==1.24.3
 opencv-python-headless==4.8.1.78
 tensorflow-cpu==2.13.0
 Pillow==10.0.1
-setuptools==65.5.0
+setuptools==68.0.0
 wheel==0.41.2
